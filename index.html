@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>unblockedchesschat</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:radial-gradient(ellipse at 18% 0%,#203d42 0%,#101820 48%);
+ color:#f1f5f2;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+header{
+ background:rgba(16,24,32,.84);padding:18px 25px;
+ display:flex;justify-content:space-between;
+ align-items:center;flex-wrap:wrap;gap:12px;
+ border-bottom:1px solid rgba(255,255,255,.08);backdrop-filter:blur(14px);
+}
+.logo{font-size:22px;font-weight:850;letter-spacing:.08em;color:#7ce6ae}
+nav{display:flex;gap:15px;align-items:center}
+button{
+ background:#45bd7d;color:#07150e;border:0;
+ padding:11px 16px;border-radius:9px;
+ cursor:pointer;font-weight:750;transition:transform .16s,background .16s,box-shadow .16s;
+}
+button:hover{background:#72dda0;transform:translateY(-1px);box-shadow:0 6px 20px #45bd7d30}
+button:focus-visible,input:focus-visible,.square:focus-visible{outline:3px solid #8cebb5;outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+input{
+ background:#101a22;border:1px solid #40545e;
+ color:white;padding:12px;border-radius:9px;
+ width:100%;min-width:0;
+}
+.container{
+ max-width:1440px;margin:auto;padding:28px 24px;
+}
+.layout{
+ display:grid;grid-template-columns:minmax(320px, min(66%, 820px)) minmax(280px,1fr);
+ gap:22px;align-items:start;
+}
+.panel{
+ background:linear-gradient(145deg,rgba(31,47,57,.96),rgba(22,34,43,.96));
+ border:1px solid rgba(255,255,255,.075);padding:20px;border-radius:16px;
+ margin-bottom:18px;box-shadow:0 18px 50px #00000020;
+}
+h2{margin-top:0;letter-spacing:-.025em}
+.board{
+ display:grid;grid-template-columns:repeat(8,1fr);
+ width:100%;aspect-ratio:1;
+ border:7px solid #263b41;border-radius:12px;
+ overflow:hidden;box-shadow:0 14px 35px #0005;
+}
+.square{
+ display:flex;align-items:center;justify-content:center;
+ aspect-ratio:1;position:relative;
+ cursor:pointer;font-size:clamp(24px,5.2vw,62px);
+ user-select:none;transition:filter .12s,background-color .12s;
+}
+.square:hover{filter:brightness(1.09)}
+.light{background:#e5e9d8;color:#171717}
+.dark{background:#78a184;color:#171717}
+.selected{background:#f0d978!important}
+.last-move.light{background:#c9d77b}
+.last-move.dark{background:#a7bd5d}
+.in-check{background:#e96e67!important}
+.target:after{
+ content:"";position:absolute;width:23%;height:23%;
+ border-radius:50%;background:#193329;opacity:.55;
+}
+.target:has(.piece):after{width:100%;height:100%;border:5px solid #193329;background:transparent;opacity:.5}
+.white-piece{color:#fff;text-shadow:1px 2px 3px #333}
+.black-piece{color:#111;text-shadow:1px 1px 2px #ddd}
+.status{
+ background:#101b22;padding:14px 16px;border:1px solid #354b52;border-radius:10px;
+ margin:14px 0;color:#d9e8e1;font-weight:650;
+}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row button{flex:1}
+.move-list{display:flex;flex-wrap:wrap;gap:6px;max-height:112px;overflow:auto;padding:4px 0}
+.move-pair{display:flex;gap:7px;align-items:center;background:#101b22;border-radius:7px;padding:5px 8px;font-variant-numeric:tabular-nums}
+.move-number{color:#83979c;font-size:12px}
+.move-san{font-weight:700}
+.section-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px}
+.section-heading h3{margin:0}
+.video-grid{
+ display:grid;grid-template-columns:1fr 1fr;gap:10px;
+}
+video{
+ width:100%;background:#080d12;
+ border-radius:10px;aspect-ratio:4/3;object-fit:cover;
+}
+.player{
+ display:flex;justify-content:space-between;
+ padding:11px;background:#101b22;
+ border-radius:9px;margin:8px 0;border:1px solid #ffffff0c;
+}
+.chat{
+ height:180px;overflow-y:auto;background:#101820;
+ padding:10px;border-radius:9px;margin-bottom:10px;
+}
+.message{padding:5px 0;overflow-wrap:anywhere}
+.small{color:#9babb8;font-size:13px}
+.rank{color:#7ce6ae;font-weight:bold}
+table{width:100%;border-collapse:collapse}
+td,th{padding:10px;text-align:left;border-bottom:1px solid #394955}
+footer{text-align:center;padding:25px;color:#8495a3}
+@media(max-width:850px){
+ .layout{grid-template-columns:1fr}
+ .container{padding:12px}
+}
+@media(max-width:480px){
+ header{padding:14px}.container{padding:10px}.panel{padding:14px}
+ .board{border-width:4px}.square{font-size:clamp(22px,10vw,44px)}
+ .row button{flex:1 1 42%}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+ <div class="logo">♟ UNBLOCKED CHESS CHAT</div>
+ <nav>
+  <span id="connection">Local game</span>
+  <button onclick="newGame()">New Game</button>
+ </nav>
+</header>
+
+<div class="container">
+
+<div class="layout">
+
+<!-- CHESS GAME -->
+<main>
+
+<div class="panel">
+ <h2>♟ Live Chess Match</h2>
+
+ <div class="player">
+  <span>♚ Opponent <small id="opponentName">Pass &amp; play</small></span>
+  <span id="opponentRank">Beginner</span>
+ </div>
+
+ <div class="board" id="board" role="grid" aria-label="Chess board"></div>
+
+ <div class="player">
+  <span>♔ You <small id="myName">Player</small></span>
+  <span id="myRank" class="rank">Beginner</span>
+ </div>
+
+ <div class="status" id="status" aria-live="polite">Local game · White to move</div>
+
+ <div class="row">
+  <button onclick="startLocalGame()">Play locally</button>
+  <button onclick="newGame()">Restart</button>
+  <button onclick="flipBoard()">Flip Board</button>
+  <button onclick="offerDraw()">Offer Draw</button>
+  <button onclick="resign()">Resign</button>
+ </div>
+
+ <div class="section-heading"><h3>Move history</h3><span class="small" id="moveCount">0 moves</span></div>
+ <div class="move-list" id="moveHistory" aria-live="polite"></div>
+</div>
+
+<!-- INVITATION -->
+<div class="panel">
+ <h2>🌐 Multiplayer</h2>
+
+ <p class="small">Your player ID:</p>
+ <div class="row">
+  <input id="myID" readonly>
+  <button onclick="copyID()">Copy ID</button>
+ </div>
+
+ <p>One player creates a room and shares their ID. The other player enters it and joins.</p>
+
+ <input id="friendID" placeholder="Enter opponent's Player ID">
+
+ <div class="row" style="margin-top:12px">
+  <button onclick="connectFriend()">Join Friend</button>
+  <button onclick="createRoom()">Create Room</button>
+ </div>
+
+ <p class="small" id="networkStatus">
+  Waiting for connection...
+ </p>
+</div>
+
+</main>
+
+<!-- SIDEBAR -->
+<aside>
+
+<div class="panel">
+ <h2>📹 Video & Voice</h2>
+
+ <div class="video-grid">
+  <div>
+   <video id="myVideo" autoplay muted playsinline></video>
+   <p class="small">Your camera</p>
+  </div>
+  <div>
+   <video id="theirVideo" autoplay playsinline></video>
+   <p class="small">Opponent's camera</p>
+  </div>
+ </div>
+
+ <div class="row">
+  <button onclick="startCamera()">Start Camera</button>
+  <button onclick="toggleMic()">Mic On/Off</button>
+  <button onclick="toggleCamera()">Camera On/Off</button>
+ </div>
+
+ <p class="small" id="mediaStatus">Camera not started.</p>
+</div>
+
+<div class="panel">
+ <h2>💬 Live Chat</h2>
+
+ <div class="chat" id="chat"></div>
+
+ <div class="row">
+  <input id="chatInput" placeholder="Write a message..."
+   onkeydown="if(event.key==='Enter')sendChat()">
+  <button onclick="sendChat()">Send</button>
+ </div>
+</div>
+
+<div class="panel">
+ <h2>🏆 Your Ranking</h2>
+
+ <h1 id="points">100</h1>
+ <div class="rank" id="rank">Beginner</div>
+
+ <p class="small">Points until next rank:</p>
+ <div id="nextRank">400</div>
+
+ <div style="background:#344653;height:12px;border-radius:8px;margin-top:12px">
+  <div id="progress" style="height:12px;background:#61d095;width:20%;border-radius:8px"></div>
+ </div>
+
+ <p>Wins: <span id="wins">0</span></p>
+ <p>Losses: <span id="losses">0</span></p>
+ <p>Draws: <span id="draws">0</span></p>
+</div>
+
+<div class="panel">
+ <h2>🥇 Ranking System</h2>
+ <table>
+  <tr><th>Rank</th><th>Points</th></tr>
+  <tr><td>Beginner</td><td>0–499</td></tr>
+  <tr><td>Rookie</td><td>500–999</td></tr>
+  <tr><td>Experienced</td><td>1000–1499</td></tr>
+  <tr><td>Expert</td><td>1500–1999</td></tr>
+  <tr><td>Master</td><td>2000–2499</td></tr>
+  <tr><td>Grand Master</td><td>2500+</td></tr>
+ </table>
+</div>
+
+</aside>
+</div>
+
+<div class="panel">
+ <h2>📊 Leaderboard</h2>
+ <p class="small">Your local player statistics.</p>
+ <table>
+  <thead><tr><th>Player</th><th>Rank</th><th>Points</th></tr></thead>
+  <tbody id="leaderboard"></tbody>
+ </table>
+</div>
+
+</div>
+
+<footer>Unblocked Chess Chat © 2026 | Play. Compete. Become a Grand Master.</footer>
+
+<script>
+const PIECES={
+ p:"♟",r:"♜",n:"♞",b:"♝",q:"♛",k:"♚",
+ P:"♙",R:"♖",N:"♘",B:"♗",Q:"♕",K:"♔"
+};
+
+const ranks=[
+ {name:"Beginner",min:0},
+ {name:"Rookie",min:500},
+ {name:"Experienced",min:1000},
+ {name:"Expert",min:1500},
+ {name:"Master",min:2000},
+ {name:"Grand Master",min:2500}
+];
+
+let game=new Chess();
+let selected=null;
+let flipped=false;
+let myColor="w";
+let localMode=true;
+let peer=null;
+let peerReady=false;
+let connection=null;
+let call=null;
+let localStream=null;
+let opponentID=null;
+let gameOver=false;
+
+let stats=JSON.parse(localStorage.getItem("chessStats")||'{"points":100,"wins":0,"losses":0,"draws":0}');
+let name=localStorage.getItem("chessName")||"Player";
+
+function getRank(points){
+ let result=ranks[0];
+ ranks.forEach(r=>{if(points>=r.min)result=r});
+ return result;
+}
+
+function saveStats(){
+ localStorage.setItem("chessStats",JSON.stringify(stats));
+ updateStats();
+}
+
+function updateStats(){
+ let rank=getRank(stats.points);
+ let index=ranks.indexOf(rank);
+ let next=ranks[index+1];
+
+ document.getElementById("points").textContent=stats.points;
+ document.getElementById("rank").textContent=rank.name;
+ document.getElementById("myRank").textContent=rank.name;
+ document.getElementById("myName").textContent=name;
+ document.getElementById("wins").textContent=stats.wins;
+ document.getElementById("losses").textContent=stats.losses;
+ document.getElementById("draws").textContent=stats.draws;
+
+ document.getElementById("nextRank").textContent=
+ next?next.min-stats.points+" points":"Maximum rank reached!";
+
+ let progress=next?
+ ((stats.points-rank.min)/(next.min-rank.min))*100:100;
+
+ document.getElementById("progress").style.width=
+ Math.max(0,Math.min(100,progress))+"%";
+
+ document.getElementById("leaderboard").innerHTML=
+ `<tr><td>${escapeHTML(name)}</td><td>${rank.name}</td><td>${stats.points}</td></tr>`;
+}
+
+function escapeHTML(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",
+ '"':"&quot;","'":"&#39;"
+ })[c]);
+}
+
+function render(){
+ const board=document.getElementById("board");
+ board.innerHTML="";
+ let history=game.history({verbose:true});
+ let lastMove=history[history.length-1];
+ let checkSquare=null;
+ if(game.in_check()){
+  let boardState=game.board();
+  for(let row=0;row<8;row++){
+   for(let col=0;col<8;col++){
+    let piece=boardState[row][col];
+    if(piece&&piece.type==="k"&&piece.color===game.turn()){
+     checkSquare="abcdefgh"[col]+(8-row);
+    }
+   }
+  }
+ }
+
+ for(let row=0;row<8;row++){
+  for(let col=0;col<8;col++){
+   let r=flipped?7-row:row;
+   let c=flipped?7-col:col;
+   let square="abcdefgh"[c]+(8-r);
+   let piece=game.get(square);
+   let div=document.createElement("div");
+
+   div.className="square "+((r+c)%2===0?"light":"dark");
+   div.dataset.square=square;
+   div.setAttribute("role","gridcell");
+   div.setAttribute("aria-label",square);
+   div.tabIndex=0;
+
+   if(selected===square)div.classList.add("selected");
+   if(lastMove&&(lastMove.from===square||lastMove.to===square))div.classList.add("last-move");
+   if(checkSquare===square)div.classList.add("in-check");
+
+   let moves=selected?game.moves({square:selected,verbose:true}):[];
+   if(moves.some(m=>m.to===square))div.classList.add("target");
+
+   if(piece){
+    div.textContent=PIECES[piece.type==="p"?
+      (piece.color==="w"?"P":"p"):
+      piece.color==="w"?piece.type.toUpperCase():piece.type];
+    div.classList.add("piece",piece.color==="w"?"white-piece":"black-piece");
+    div.setAttribute("aria-label",square+" "+(piece.color==="w"?"white ":"black ")+piece.type);
+   }
+
+   div.onclick=()=>clickSquare(square);
+   div.onkeydown=event=>{
+    if(event.key==="Enter"||event.key===" "){
+     event.preventDefault();
+     clickSquare(square);
+    }
+   };
+   board.appendChild(div);
+  }
+ }
+ renderMoveHistory(history);
+}
+
+function renderMoveHistory(history){
+ const list=document.getElementById("moveHistory");
+ list.innerHTML="";
+ for(let index=0;index<history.length;index+=2){
+  const pair=document.createElement("span");
+  pair.className="move-pair";
+  const number=document.createElement("span");
+  number.className="move-number";
+  number.textContent=(index/2+1)+".";
+  const white=document.createElement("span");
+  white.className="move-san";
+  white.textContent=history[index].san;
+  pair.append(number,white);
+  if(history[index+1]){
+   const black=document.createElement("span");
+   black.className="move-san";
+   black.textContent=history[index+1].san;
+   pair.appendChild(black);
+  }
+  list.appendChild(pair);
+ }
+ document.getElementById("moveCount").textContent=
+  Math.ceil(history.length/2)+" "+(Math.ceil(history.length/2)===1?"move":"moves");
+ list.scrollTop=list.scrollHeight;
+}
+
+function clickSquare(square){
+ if(gameOver)return;
+ if(!localMode&&(!connection||!connection.open)){
+  document.getElementById("status").textContent=
+   "Waiting for a secure connection to your opponent.";
+  return;
+ }
+
+ let piece=game.get(square);
+
+ if(selected){
+  if(selected===square){
+   selected=null;render();return;
+  }
+
+  let moves=game.moves({square:selected,verbose:true});
+  let possible=moves.filter(m=>m.to===square);
+
+  if(possible.length){
+   let promotion;
+   if(possible.some(m=>m.promotion)){
+    promotion=(prompt("Promote to q, r, b, or n?","q")||"q").toLowerCase();
+    if(!["q","r","b","n"].includes(promotion))promotion="q";
+   }
+
+   if(localMode||game.turn()===myColor){
+    makeMove({from:selected,to:square,promotion});
+   }
+   selected=null;
+   render();
+   return;
+  }
+ }
+
+ if(piece&&game.turn()===piece.color&&(localMode||piece.color===myColor)){
+  selected=square;
+ }else{
+  selected=null;
+ }
+ render();
+}
+
+function makeMove(move){
+ if(!localMode&&(!connection||!connection.open)){
+  document.getElementById("status").textContent="Your opponent is not connected.";
+  return;
+ }
+ let result;
+ try{
+  result=game.move(move);
+  if(!result)return;
+
+  if(!localMode&&!sendData({type:"move",move:{
+   from:result.from,to:result.to,promotion:result.promotion
+  }})){
+   game.undo();
+   render();
+   return;
+  }
+
+  afterMove();
+ }catch(error){
+  if(result)game.undo();
+  render();
+  document.getElementById("networkStatus").textContent=
+   "Could not send the move: "+error.message;
+ }
+}
+
+function afterMove(){
+ render();
+
+ let status=
+  game.in_checkmate()?"Checkmate!":
+  game.in_draw()?"Draw!":
+  game.in_check()?"Check!":
+  (game.turn()==="w"?"White":"Black")+" to move";
+ document.getElementById("status").textContent=status;
+
+ if(game.game_over()){
+  gameOver=true;
+  const result=game.in_draw()?"draw":game.turn()===myColor?"loss":"win";
+  if(localMode){
+   document.getElementById("status").textContent=
+    game.in_draw()?"Draw!":(game.turn()==="w"?"Black":"White")+" wins by checkmate!";
+  }else{
+   finishGame(result);
+  }
+ }
+}
+
+function receiveMove(move){
+ if(localMode||!connection||!connection.open||game.turn()===myColor){
+  document.getElementById("networkStatus").textContent=
+   "Received an out-of-turn move; the match was not changed.";
+  return;
+ }
+ try{
+  let result=game.move(move);
+  if(!result){
+   document.getElementById("networkStatus").textContent=
+    "Received an invalid move; the match was not changed.";
+   return;
+  }
+  afterMove();
+ }catch(error){
+  document.getElementById("networkStatus").textContent=
+   "Received an invalid move: "+error.message;
+ }
+}
+
+function finishGame(result){
+ if(gameOver===false)return;
+ if(result==="win"){
+  stats.points+=20;stats.wins++;
+ }else if(result==="loss"){
+  stats.points=Math.max(0,stats.points-20);stats.losses++;
+ }else{
+  stats.points+=5;stats.draws++;
+ }
+ saveStats();
+ document.getElementById("status").textContent=
+  result==="win"?"You won! +20 points":
+  result==="loss"?"You lost! -20 points":"Draw! +5 points";
+}
+
+function newGame(){
+ game=new Chess();
+ selected=null;
+ gameOver=false;
+ render();
+ if(connection)sendData({type:"newgame"});
+ document.getElementById("status").textContent="New game started.";
+}
+
+function startLocalGame(){
+ if(connection)connection.close();
+ if(call)call.close();
+ document.getElementById("theirVideo").srcObject=null;
+ localMode=true;
+ connection=null;
+ myColor="w";
+ opponentID=null;
+ game=new Chess();
+ selected=null;
+ gameOver=false;
+ document.getElementById("connection").textContent="Local game";
+ document.getElementById("opponentName").textContent="Pass & play";
+ document.getElementById("status").textContent="Local game · White to move";
+ render();
+}
+
+function flipBoard(){
+ flipped=!flipped;
+ render();
+}
+
+function offerDraw(){
+ if(localMode){
+  if(!gameOver&&confirm("End this local game as a draw?")){
+   gameOver=true;
+   document.getElementById("status").textContent="Draw!";
+  }
+  return;
+ }
+ if(!connection||!connection.open){
+  document.getElementById("status").textContent=
+   "Connect to an opponent before offering a draw.";
+  return;
+ }
+ if(sendData({type:"draw"})){
+  document.getElementById("status").textContent="Draw offer sent.";
+ }
+}
+
+function resign(){
+ if(gameOver)return;
+ if(localMode){
+  const resigned=game.turn()==="w"?"White":"Black";
+  gameOver=true;
+  document.getElementById("status").textContent=
+   resigned+" resigned. "+(resigned==="White"?"Black":"White")+" wins!";
+  return;
+ }
+ if(!connection||!connection.open){
+  document.getElementById("status").textContent=
+   "Connect to an opponent before resigning.";
+  return;
+ }
+ gameOver=true;
+ sendData({type:"resign"});
+ finishGame("loss");
+}
+
+function sendData(data){
+ if(!connection||!connection.open)return false;
+ try{
+  connection.send(data);
+  return true;
+ }catch(error){
+  document.getElementById("networkStatus").textContent=
+   "Network error: "+error.message;
+  return false;
+ }
+}
+
+function receiveData(data){
+ if(!data)return;
+
+ switch(data.type){
+  case "move":
+   receiveMove(data.move);break;
+
+  case "newgame":
+   game=new Chess();
+   selected=null;
+   gameOver=false;
+   render();
+   document.getElementById("status").textContent="Opponent started a new game.";
+   break;
+
+  case "chat":
+   addMessage("Opponent",data.text);break;
+
+  case "draw":
+   if(confirm("Opponent offers a draw. Accept?")){
+    gameOver=true;
+    finishGame("draw");
+    sendData({type:"drawAccepted"});
+   }
+   break;
+
+  case "drawAccepted":
+   gameOver=true;
+   finishGame("draw");
+   break;
+
+  case "resign":
+   gameOver=true;
+   finishGame("win");
+   break;
+ }
+}
+
+function addMessage(sender,text){
+ let div=document.createElement("div");
+ div.className="message";
+ div.textContent=sender+": "+text;
+ document.getElementById("chat").appendChild(div);
+ document.getElementById("chat").scrollTop=999999;
+}
+
+function sendChat(){
+ let input=document.getElementById("chatInput");
+ let text=input.value.trim();
+ if(!text)return;
+
+ addMessage("You",text);
+ sendData({type:"chat",text});
+ input.value="";
+}
+
+// PEER CONNECTION
+
+function createRoom(){
+ if(!peerReady){
+  document.getElementById("networkStatus").textContent=
+   "Still connecting to the multiplayer service. Try again in a moment.";
+  return;
+ }
+ if(connection){
+  let previous=connection;
+  connection=null;
+  previous.close();
+ }
+ localMode=false;
+ myColor="w";
+ opponentID=null;
+ game=new Chess();
+ selected=null;
+ gameOver=false;
+ render();
+ document.getElementById("connection").textContent="Waiting...";
+ document.getElementById("opponentName").textContent="Waiting for player";
+ document.getElementById("networkStatus").textContent=
+ "Waiting for opponent to join...";
+ document.getElementById("status").textContent=
+ "You are White. Share your ID with a friend.";
+}
+
+function connectFriend(){
+ let id=document.getElementById("friendID").value.trim();
+ if(!id){
+  document.getElementById("networkStatus").textContent=
+   "Enter your friend's player ID first.";
+  return;
+ }
+ if(!peerReady){
+  document.getElementById("networkStatus").textContent=
+   "Still connecting to the multiplayer service. Try again in a moment.";
+  return;
+ }
+ if(id===document.getElementById("myID").value){
+  document.getElementById("networkStatus").textContent=
+   "That is your own ID. Ask a friend to create a room.";
+  return;
+ }
+ if(connection){
+  let previous=connection;
+  connection=null;
+  previous.close();
+ }
+
+ localMode=false;
+ myColor="b";
+ game=new Chess();
+ selected=null;
+ gameOver=false;
+ render();
+ document.getElementById("connection").textContent="Connecting...";
+ document.getElementById("status").textContent="Connecting to your opponent...";
+ connectToPeer(id);
+}
+
+function connectToPeer(id){
+ try{
+  connection=peer.connect(id,{reliable:true});
+  opponentID=id;
+  setupConnection(connection);
+ }catch(error){
+  connection=null;
+  localMode=true;
+  document.getElementById("connection").textContent="Local game";
+  document.getElementById("networkStatus").textContent=
+   "Could not connect: "+error.message;
+ }
+}
+
+function setupConnection(conn){
+ conn.on("open",()=>{
+  if(connection!==conn)return;
+  connection=conn;
+  localMode=false;
+  document.getElementById("networkStatus").textContent="Connected!";
+  document.getElementById("connection").textContent="🟢 Online";
+  document.getElementById("opponentName").textContent="Connected";
+  document.getElementById("status").textContent=
+   "Connected! "+(myColor==="w"?"You are White.":"You are Black.");
+  if(myColor==="b"&&!sendData({type:"newgame"})){
+   document.getElementById("status").textContent=
+    "Connected, but could not synchronize the new game.";
+  }
+ });
+
+ conn.on("data",data=>{
+  if(connection===conn)receiveData(data);
+ });
+
+ conn.on("close",()=>{
+  if(connection!==conn)return;
+  document.getElementById("networkStatus").textContent="Opponent disconnected";
+  document.getElementById("connection").textContent="Local game";
+  document.getElementById("opponentName").textContent="Disconnected";
+  connection=null;
+  localMode=true;
+  document.getElementById("status").textContent=
+   "Opponent disconnected. Start a local game or reconnect.";
+ });
+
+ conn.on("error",error=>{
+  document.getElementById("networkStatus").textContent=
+   "Connection failed: "+error.message;
+ });
+}
+
+if(typeof Peer==="function"){
+ try{
+  peer=new Peer();
+
+  peer.on("open",id=>{
+   peerReady=true;
+   document.getElementById("myID").value=id;
+   document.getElementById("networkStatus").textContent="Ready to play";
+  });
+
+  peer.on("connection",conn=>{
+   if(connection&&connection.open){
+    conn.close();
+    document.getElementById("networkStatus").textContent=
+     "You are already connected to an opponent.";
+    return;
+   }
+   localMode=false;
+   myColor="w";
+   game=new Chess();
+   selected=null;
+   gameOver=false;
+   render();
+   connection=conn;
+   opponentID=conn.peer;
+   setupConnection(conn);
+  });
+
+  peer.on("call",incoming=>{
+   if(localStream)incoming.answer(localStream);
+   else incoming.answer();
+   handleCall(incoming);
+  });
+
+  peer.on("error",e=>{
+   document.getElementById("networkStatus").textContent=
+    "Multiplayer error: "+e.message;
+  });
+ }catch(error){
+  document.getElementById("networkStatus").textContent=
+   "Multiplayer unavailable: "+error.message;
+ }
+}else{
+ document.getElementById("networkStatus").textContent=
+  "Multiplayer unavailable. Local play is ready.";
+}
+
+function copyID(){
+ let id=document.getElementById("myID").value;
+ if(!id){
+  document.getElementById("networkStatus").textContent=
+   "Your player ID is still loading.";
+  return;
+ }
+ navigator.clipboard.writeText(id).then(()=>{
+  document.getElementById("networkStatus").textContent="Player ID copied.";
+ }).catch(error=>{
+  document.getElementById("networkStatus").textContent=
+   "Could not copy the ID: "+error.message;
+ });
+}
+
+// VIDEO AND AUDIO
+
+async function startCamera(){
+ try{
+  localStream=await navigator.mediaDevices.getUserMedia({
+   video:true,audio:true
+  });
+
+  document.getElementById("myVideo").srcObject=localStream;
+  document.getElementById("mediaStatus").textContent="Camera and microphone active.";
+
+  if(opponentID&&peer){
+   call=peer.call(opponentID,localStream);
+   handleCall(call);
+  }
+ }catch(e){
+  alert("Could not access camera or microphone: "+e.message);
+ }
+}
+
+function handleCall(incoming){
+ call=incoming;
+ incoming.on("stream",stream=>{
+  document.getElementById("theirVideo").srcObject=stream;
+ });
+ incoming.on("close",()=>{
+  document.getElementById("theirVideo").srcObject=null;
+ });
+}
+
+function toggleMic(){
+ if(!localStream)return alert("Start your camera first.");
+ localStream.getAudioTracks().forEach(t=>t.enabled=!t.enabled);
+}
+
+function toggleCamera(){
+ if(!localStream)return alert("Start your camera first.");
+ localStream.getVideoTracks().forEach(t=>t.enabled=!t.enabled);
+}
+
+render();
+updateStats();
+</script>
+
+</body>
+</html>
